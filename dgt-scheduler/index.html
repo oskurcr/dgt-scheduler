@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <title>DGT Study Scheduler</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --bg2: #1e293b;
+      --bg3: #334155;
+      --accent: #6366f1;
+      --accent-dark: #4f46e5;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --radius: 12px;
+      --gap: 16px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Layout ── */
+    .app-header {
+      background: var(--bg2);
+      padding: 14px var(--gap);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--bg3);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .app-header h1 { font-size: 1.1rem; font-weight: 700; }
+    .app-header .header-actions { display: flex; gap: 8px; }
+
+    main { flex: 1; padding: var(--gap); max-width: 480px; margin: 0 auto; width: 100%; }
+
+    section[hidden] { display: none !important; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: var(--gap);
+      margin-bottom: var(--gap);
+    }
+
+    .card h2 { font-size: 1rem; margin-bottom: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity .15s;
+      min-height: 48px;
+    }
+    .btn:active { opacity: .8; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:disabled { background: var(--bg3); color: var(--text-muted); cursor: not-allowed; }
+    .btn-green { background: var(--green); color: white; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--bg3); color: var(--text); }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-sm { padding: 8px 14px; font-size: .875rem; width: auto; min-height: 36px; }
+    .btn-icon { background: transparent; border: none; cursor: pointer; font-size: 1.25rem; padding: 8px; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+
+    /* ── Form ── */
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: .875rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+
+    .field input[type=number],
+    .field input[type=time],
+    .field textarea,
+    .field input[type=text] {
+      width: 100%;
+      background: var(--bg3);
+      border: 1.5px solid transparent;
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field input:focus,
+    .field textarea:focus { border-color: var(--accent); }
+
+    .field textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+
+    .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Progress ── */
+    .progress-track {
+      background: var(--bg3);
+      border-radius: 99px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    #progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width .4s ease;
+    }
+    #progress-label { font-size: .875rem; color: var(--text-muted); }
+
+    /* ── Alarm list ── */
+    #alarm-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+    .alarm-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg3);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .alarm-item--active { border: 1.5px solid var(--yellow); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,.4); } 50% { box-shadow: 0 0 0 6px rgba(245,158,11,0); } }
+
+    .alarm-time { font-weight: 600; font-size: .95rem; min-width: 60px; }
+    .alarm-hour { color: var(--text-muted); font-size: .875rem; flex: 1; }
+    .alarm-empty { color: var(--text-muted); font-size: .9rem; text-align: center; padding: 20px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 99px;
+      font-size: .75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-pending  { background: var(--bg3); color: var(--text-muted); }
+    .badge-fired    { background: var(--yellow); color: #000; }
+    .badge-done     { background: var(--green); color: #000; }
+    .badge-missed   { background: var(--red); color: #fff; }
+    .badge-voluntary{ background: var(--accent); color: #fff; }
+
+    /* ── Alarm active view ── */
+    .alarm-big-card {
+      text-align: center;
+      padding: 32px var(--gap);
+    }
+    .alarm-big-card .alarm-emoji { font-size: 5rem; display: block; margin-bottom: 16px; }
+    .alarm-big-card h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    .alarm-big-card p { color: var(--text-muted); margin-bottom: 24px; font-size: .95rem; }
+    #alarm-time-display { color: var(--accent); font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 24px; }
+
+    .alarm-actions { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Failed done inline form ── */
+    .failed-inline { margin-top: 16px; }
+    .failed-inline h3 { font-size: .9rem; color: var(--text-muted); margin-bottom: 10px; }
+
+    /* ── Failed questions view ── */
+    #failed-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+    .failed-item {
+      background: var(--bg2);
+      border-radius: 8px;
+      padding: 12px;
+      position: relative;
+    }
+    .failed-meta { font-size: .75rem; color: var(--text-muted); margin-bottom: 4px; }
+    .failed-text { font-size: .9rem; line-height: 1.5; padding-right: 28px; }
+    .btn-delete {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: .875rem;
+      padding: 4px;
+    }
+    .failed-empty { color: var(--text-muted); text-align: center; padding: 30px; font-size: .9rem; }
+
+    /* ── Add question form ── */
+    #add-question-form { display: none; margin-top: 12px; }
+    #add-question-form.open { display: block; }
+
+    /* ── Settings ── */
+    .settings-section { margin-bottom: 20px; }
+    .settings-section h3 { font-size: .875rem; color: var(--text-muted); margin-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .settings-hint { font-size: .8rem; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+    .settings-hint code { background: var(--bg3); padding: 2px 5px; border-radius: 4px; font-size: .78rem; word-break: break-all; }
+
+    /* ── Notification permission banner ── */
+    #notif-banner {
+      background: var(--yellow);
+      color: #000;
+      padding: 12px var(--gap);
+      font-size: .875rem;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+    #notif-banner.visible { display: block; }
+
+    /* ── Error text ── */
+    .error-text { color: var(--red); font-size: .85rem; margin-top: 6px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--bg2);
+      color: var(--text);
+      border: 1px solid var(--bg3);
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: .9rem;
+      z-index: 999;
+      transition: transform .25s;
+      max-width: 320px;
+      text-align: center;
+      pointer-events: none;
+    }
+    .toast--visible { transform: translateX(-50%) translateY(0); }
+    .toast--success { border-color: var(--green); }
+    .toast--error { border-color: var(--red); }
+
+    /* ── Divider ── */
+    .divider { border: none; border-top: 1px solid var(--bg3); margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+  <div id="notif-banner">
+    🔔 Activa las notificaciones para recibir las alarmas
+    <button class="btn-icon" id="btn-request-notif" style="color:#000;font-size:.875rem;vertical-align:middle;width:auto;min-width:0;padding:0 8px">Activar</button>
+  </div>
+
+  <header class="app-header">
+    <h1>🚗 DGT Tests</h1>
+    <div class="header-actions">
+      <button class="btn-icon" id="btn-nav-failed" title="Preguntas falladas">📝</button>
+      <button class="btn-icon" id="btn-nav-settings" title="Ajustes">⚙️</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── VIEW: Setup ─────────────────────────────────────────────────── -->
+    <section id="view-setup">
+      <div class="card">
+        <h2>Plan de hoy</h2>
+        <div class="field">
+          <label for="input-tests">¿Cuántos tests quieres hacer hoy?</label>
+          <input type="number" id="input-tests" min="1" max="20" value="4">
+        </div>
+        <div class="field">
+          <label>Horario activo (sin contar horas de clase)</label>
+          <div class="time-row">
+            <div>
+              <label for="input-start" style="font-size:.8rem">Desde</label>
+              <input type="time" id="input-start" value="09:00">
+            </div>
+            <div>
+              <label for="input-end" style="font-size:.8rem">Hasta</label>
+              <input type="time" id="input-end" value="21:00">
+            </div>
+          </div>
+        </div>
+        <p id="setup-error" class="error-text"></p>
+        <button class="btn btn-primary" id="btn-setup">Programar mi día 🎯</button>
+      </div>
+    </section>
+
+    <!-- ── VIEW: Dashboard ─────────────────────────────────────────────── -->
+    <section id="view-dashboard" hidden>
+      <div class="card">
+        <h2>Progreso de hoy</h2>
+        <div class="progress-track"><div id="progress-bar" style="width:0%"></div></div>
+        <p id="progress-label">0 / 0 tests completados</p>
+      </div>
+
+      <div class="card">
+        <h2>Tests programados</h2>
+        <ul id="alarm-list"></ul>
+        <hr class="divider">
+        <button class="btn btn-outline" id="btn-voluntary">+ Test voluntario (no cuenta)</button>
+      </div>
+    </section>
+
+    <!-- ── VIEW: Alarm active ───────────────────────────────────────────── -->
+    <section id="view-alarm" hidden>
+      <div class="card alarm-big-card">
+        <span class="alarm-emoji">🚨</span>
+        <h2>¡Hora del test!</h2>
+        <span id="alarm-time-display"></span>
+        <p>Abre tu app de tests (DGT, Autoescuela 2.0…) y haz un test ahora.</p>
+
+        <div class="alarm-actions">
+          <button class="btn btn-green" id="btn-alarm-done">✅ Ya lo hice</button>
+          <button class="btn btn-outline" id="btn-alarm-snooze">⏰ Snooze 10 min</button>
+          <button class="btn btn-outline btn-sm" id="btn-alarm-back" style="width:auto;margin:0 auto">← Volver al dashboard</button>
+        </div>
+
+        <!-- Inline form: log failed questions after done -->
+        <div class="failed-inline" id="done-form" style="display:none">
+          <hr class="divider">
+          <h3>¿Cuántas preguntas fallaste?</h3>
+          <div class="field">
+            <input type="number" id="input-failed-count" min="0" max="30" value="0" placeholder="0 si ninguna">
+          </div>
+          <div id="failed-questions-input" style="display:none">
+            <div class="field">
+              <label>Escribe cada pregunta fallada (una por una)</label>
+              <textarea id="input-failed-q" placeholder="Escribe la pregunta que fallaste..."></textarea>
+            </div>
+            <button class="btn btn-outline btn-sm" id="btn-add-failed-q" style="width:auto">+ Añadir pregunta</button>
+            <div id="queued-questions" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+          <hr class="divider">
+          <button class="btn btn-primary" id="btn-confirm-done">Guardar y terminar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── VIEW: Failed questions ───────────────────────────────────────── -->
+    <section id="view-failed-questions" hidden>
+      <div class="card">
+        <h2>Preguntas falladas</h2>
+        <ul id="failed-list"></ul>
+        <hr class="divider">
+        <button class="btn btn-outline" id="btn-toggle-add-q">+ Añadir pregunta</button>
+        <div id="add-question-form">
+          <div class="field" style="margin-top:12px">
+            <textarea id="input-new-q" placeholder="Escribe la pregunta que fallaste..."></textarea>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-save-new-q" style="width:auto">Guardar</button>
+        </div>
+      </div>
+      <button class="btn btn-outline" id="btn-back-from-failed">← Volver</button>
+    </section>
+
+    <!-- ── VIEW: Settings ──────────────────────────────────────────────── -->
+    <section id="view-settings" hidden>
+      <div class="card">
+        <h2>Ajustes</h2>
+
+        <div class="settings-section">
+          <h3>Notificaciones background</h3>
+          <div id="trigger-api-status"></div>
+          <p class="settings-hint" style="margin-top:8px">
+            Para que las alarmas salten aunque la app esté cerrada, activa el flag experimental en Chrome:<br>
+            <code>chrome://flags/#enable-experimental-web-platform-features</code>
+          </p>
+        </div>
+
+        <div class="settings-section">
+          <h3>Día actual</h3>
+          <button class="btn btn-outline" id="btn-reset-day">Resetear schedule de hoy</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Datos</h3>
+          <button class="btn btn-danger btn-sm" id="btn-clear-all" style="width:auto">Borrar todos los datos</button>
+        </div>
+      </div>
+      <button class="btn btn-outline" id="btn-back-from-settings">← Volver</button>
+    </section>
+
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
